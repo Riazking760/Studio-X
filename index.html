@@ -60,12 +60,10 @@
     </div>
   </div>
 
-  <!-- 3. BG Remove - NO KEY, NO API -->
   <div id="bgControlArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col gap-3">
-    <h2 class="text-sm font-bold text-cyan-400">৩. AI ব্যাকগ্রাউন্ড রিমুভ ও কালার - Key লাগবে না</h2>
-    <button id="removeBgBtn" onclick="removeBackgroundLocal()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs tracking-wide shadow-lg">✨ AI দিয়ে ব্যাকগ্রাউন্ড রিমুভ করুন (Free)</button>
-    <p id="loadingText" class="text-xs text-center text-amber-400 hidden animate-pulse">প্রথমবার AI মডেল ডাউনলোড হচ্ছে (১৫-৩০ সেকেন্ড)... একটু অপেক্ষা করো...</p>
-    <p id="errorText" class="text-xs text-center text-rose-400 hidden"></p>
+    <h2 class="text-sm font-bold text-cyan-400">৩. AI ব্যাকগ্রাউন্ড রিমুভ ও কালার</h2>
+    <button id="removeBgBtn" onclick="removeBackgroundLocal()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs shadow-lg">✨ AI দিয়ে ব্যাকগ্রাউন্ড রিমুভ করুন</button>
+    <p id="loadingText" class="text-xs text-center text-amber-400 hidden animate-pulse">Server e AI kaj kortese... 3-5 sec wait koro...</p>
     <div class="grid grid-cols-4 gap-2 pt-1">
       <button onclick="changeBgColor('#ffffff')" class="bg-white text-slate-900 py-2 rounded-lg text-xs font-extrabold border border-slate-400">সাদা BG</button>
       <button onclick="changeBgColor('#009933')" class="bg-green-600 text-white py-2 rounded-lg text-xs font-extrabold">সবুজ BG</button>
@@ -93,14 +91,8 @@
 
 <div id="print-section" class="hidden"><div id="gridContainer" class="flex flex-wrap gap-1.5 justify-start items-start"></div></div>
 
-<script type="module">
-import { AutoModel, AutoProcessor, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.0';
-env.allowLocalModels = false;
-
-if (window.Telegram && window.Telegram.WebApp) {
-  window.Telegram.WebApp.ready();
-  window.Telegram.WebApp.expand();
-}
+<script>
+if (window.Telegram && window.Telegram.WebApp) { window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); }
 
 let originalImageFile = null;
 let baseImageObj = null;
@@ -108,7 +100,6 @@ let coloredImageObj = null;
 let finalDataUrl = null;
 let currentRatio = 35/45;
 let printWidthMm = 35, printHeightMm = 45, photoCount = 4;
-let segmenter = null;
 
 const imageInput = document.getElementById('imageInput');
 const sourceCanvas = document.getElementById('sourceCanvas');
@@ -132,56 +123,37 @@ imageInput.addEventListener('change', function(e){
   reader.readAsDataURL(file);
 });
 
-// ===== NEW: 100% Browser AI - No Key, No 400 Error =====
-window.removeBackgroundLocal = async function(){
-  if(!originalImageFile) return alert('আগে ছবি আপলোড করো!');
+async function removeBackgroundLocal() {
+  if (!originalImageFile) return alert('Age chobi upload koro!');
   const btn = document.getElementById('removeBgBtn');
   const loadingText = document.getElementById('loadingText');
-  const errorText = document.getElementById('errorText');
-  btn.disabled = true; loadingText.classList.remove('hidden'); errorText.classList.add('hidden');
-  try{
-    if(!segmenter){
-      loadingText.innerText = "প্রথমবার AI মডেল ডাউনলোড হচ্ছে... 20-30 সেকেন্ড অপেক্ষা করো...";
-      segmenter = await AutoModel.from_pretrained('briaai/RMBG-1.4', { dtype: 'fp32' });
-    }
-    const processor = await AutoProcessor.from_pretrained('briaai/RMBG-1.4');
-    const imgUrl = URL.createObjectURL(originalImageFile);
-    const image = await RawImage.read(imgUrl);
-    const { pixel_values } = await processor(image);
-    const { output } = await segmenter({ input: pixel_values });
-    const mask = await RawImage.fromTensor(output[0].mul(255).to('uint8')).resize(image.width, image.height);
-
-    // Mask diye transparent chobi banao
-    const canvas = document.createElement('canvas');
-    canvas.width = image.width; canvas.height = image.height;
-    const cctx = canvas.getContext('2d');
-    cctx.drawImage(image.toCanvas(), 0, 0);
-    const imgData = cctx.getImageData(0,0,canvas.width,canvas.height);
-    const maskCanvas = mask.toCanvas();
-    const maskCtx = maskCanvas.getContext('2d');
-    const maskData = maskCtx.getImageData(0,0,canvas.width,canvas.height).data;
-    for(let i=0;i<imgData.data.length;i+=4){ imgData.data[i+3] = maskData[i]; }
-    cctx.putImageData(imgData,0,0);
-
+  btn.disabled = true;
+  loadingText.classList.remove('hidden');
+  try {
+    const formData = new FormData();
+    formData.append("image", originalImageFile);
+    const res = await fetch("/remove-bg", { method: "POST", body: formData });
+    if (!res.ok) throw new Error("Server error");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
     let transparentImg = new Image();
-    transparentImg.onload = function(){
+    transparentImg.onload = function() {
       baseImageObj = transparentImg;
       changeBgColor('#ffffff');
-      btn.disabled = false; loadingText.classList.add('hidden');
-      alert('হয়ে গেছে! এখন নিচ থেকে BG কালার বেছে নাও।');
+      btn.disabled = false;
+      loadingText.classList.add('hidden');
+      alert('Hoye gese! Ekhon BG color bacho.');
     };
-    transparentImg.src = canvas.toDataURL('image/png');
-  }catch(err){
+    transparentImg.src = url;
+  } catch (err) {
     console.error(err);
-    errorText.innerText = "হয় নাই, আবার চেষ্টা করো। Net ভালো থাকতে হবে।";
-    errorText.classList.remove('hidden');
-    btn.disabled = false; loadingText.classList.add('hidden');
+    alert('Server e problem, Render er Logs dekho.');
+    btn.disabled = false;
+    loadingText.classList.add('hidden');
   }
-};
+}
 
-import { RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.0';
-
-window.changeBgColor = function(hexColor){
+function changeBgColor(hexColor){
   if(!baseImageObj) return;
   let tempCanvas = document.createElement('canvas');
   tempCanvas.width = baseImageObj.width; tempCanvas.height = baseImageObj.height;
@@ -191,30 +163,30 @@ window.changeBgColor = function(hexColor){
   let newImg = new Image();
   newImg.onload = function(){ coloredImageObj = newImg; renderCanvas(); };
   newImg.src = tempCanvas.toDataURL('image/png');
-};
+}
 
-window.setCropRatio = function(type,w,h){
+function setCropRatio(type,w,h){
   currentRatio = w/h; printWidthMm=w; printHeightMm=h;
   document.getElementById('customWidth').value=w;
   document.getElementById('customHeight').value=h;
   document.getElementById('cropLabel').innerText = type.toUpperCase()+` (${w}x${h}mm)`;
   document.getElementById('printDimensionLabel').innerText = `সাইজ: ${w}mm x ${h}mm`;
   renderCanvas();
-};
-window.applyCustomSize = function(){
+}
+function applyCustomSize(){
   const w = parseFloat(document.getElementById('customWidth').value);
   const h = parseFloat(document.getElementById('customHeight').value);
-  if(!w||!h) return alert('সঠিক সাইজ দাও!');
+  if(!w||!h) return alert('Sothik size dao!');
   currentRatio=w/h; printWidthMm=w; printHeightMm=h;
   document.getElementById('cropLabel').innerText = `Custom (${w}x${h}mm)`;
   document.getElementById('printDimensionLabel').innerText = `সাইজ: ${w}mm x ${h}mm`;
   renderCanvas();
-};
-window.applyFilters = function(){
+}
+function applyFilters(){
   document.getElementById('brightVal').innerText = document.getElementById('brightness').value+'%';
   document.getElementById('contrastVal').innerText = document.getElementById('contrast').value+'%';
   renderCanvas();
-};
+}
 function renderCanvas(){
   if(!coloredImageObj) return;
   let imgW=coloredImageObj.width, imgH=coloredImageObj.height;
@@ -230,18 +202,18 @@ function renderCanvas(){
   ctx.filter='none';
   finalDataUrl=sourceCanvas.toDataURL('image/jpeg',0.96);
 }
-window.updateCount = function(d){ photoCount=Math.max(1,photoCount+d); document.getElementById('photoCount').innerText=photoCount; };
-window.triggerPrint = function(){
-  if(!finalDataUrl) return alert('আগে ছবি আপলোড করো!');
+function updateCount(d){ photoCount=Math.max(1,photoCount+d); document.getElementById('photoCount').innerText=photoCount; }
+function triggerPrint(){
+  if(!finalDataUrl) return alert('Age chobi upload koro!');
   const g=document.getElementById('gridContainer'); g.innerHTML='';
   for(let i=0;i<photoCount;i++){ let img=document.createElement('img'); img.src=finalDataUrl; img.style.width=printWidthMm+'mm'; img.style.height=printHeightMm+'mm'; img.className='cut-border object-cover'; g.appendChild(img); }
   document.getElementById('print-section').classList.remove('hidden'); window.print(); document.getElementById('print-section').classList.add('hidden');
-};
-window.downloadSinglePhoto = function(){
+}
+function downloadSinglePhoto(){
   if(!finalDataUrl) return;
   const link=document.createElement('a'); link.download=`StudioX_${printWidthMm}x${printHeightMm}_${Date.now()}.jpg`; link.href=finalDataUrl; link.click();
-};
-window.resetAll = function(){ location.reload(); };
+}
+function resetAll(){ location.reload(); }
 </script>
 </body>
 </html>

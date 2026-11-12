@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio X - Digital Photo Lab & Multi-Print</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Telegram Mini App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Free Browser AI Background Removal Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/bundle.js"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #print-section, #print-section * { visibility: visible; }
+            #print-section {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 5mm;
+                background: white !important;
+            }
+            .no-print { display: none !important; }
+        }
+        .cut-border { border: 1px dashed #64748b; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans pb-10">
+
+    <!-- Telegram Header -->
+    <header class="bg-slate-900 border-b border-slate-800 py-3 px-4 flex justify-between items-center no-print shadow-md sticky top-0 z-30">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-extrabold text-white text-sm shadow">X</div>
+            <div>
+                <h1 class="text-base font-extrabold text-cyan-400 tracking-wide">Studio X</h1>
+                <p class="text-[10px] text-slate-400">Telegram Mini Studio</p>
+            </div>
+        </div>
+        <button onclick="resetAll()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-rose-400 px-3 py-1.5 rounded-lg font-semibold">🔄 রিসেট</button>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-lg w-full mx-auto p-4 flex flex-col gap-4 no-print">
+        
+        <!-- Step 1: Upload Photo -->
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow">
+            <label class="block text-sm font-bold mb-2 text-cyan-400">১. কাস্টমারের ছবি আপলোড করুন</label>
+            <input type="file" id="imageInput" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-cyan-600 file:text-white hover:file:bg-cyan-700 cursor-pointer">
+        </div>
+
+        <!-- Step 2: Live Preview & Custom Size/Crop -->
+        <div id="editorArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col items-center gap-3">
+            <div class="w-full flex justify-between items-center">
+                <h2 class="text-sm font-bold text-cyan-400">২. সাইজ ও প্রিভিউ</h2>
+                <span id="cropLabel" class="text-[11px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded font-semibold">পাসপোর্ট (35x45mm)</span>
+            </div>
+
+            <!-- Canvas Preview -->
+            <div class="relative w-48 h-60 bg-slate-950 rounded-lg overflow-hidden border-2 border-slate-700 flex items-center justify-center shadow-inner">
+                <canvas id="sourceCanvas" class="max-w-full max-h-full object-contain"></canvas>
+            </div>
+
+            <!-- Preset Size Buttons -->
+            <div class="grid grid-cols-3 gap-2 w-full">
+                <button onclick="setCropRatio('passport', 35, 45)" id="btn-passport" class="bg-cyan-600 text-white py-2 rounded-lg text-xs font-bold transition shadow">পাসপোর্ট</button>
+                <button onclick="setCropRatio('stamp', 20, 25)" id="btn-stamp" class="bg-slate-800 text-slate-300 hover:bg-slate-700 py-2 rounded-lg text-xs font-bold transition">স্ট্যাম্প</button>
+                <button onclick="setCropRatio('square', 40, 40)" id="btn-square" class="bg-slate-800 text-slate-300 hover:bg-slate-700 py-2 rounded-lg text-xs font-bold transition">বর্গাকার</button>
+            </div>
+
+            <!-- Custom Width & Height Input Box -->
+            <div class="w-full bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 text-xs">
+                <span class="font-bold text-slate-300">অথবা কাস্টম সাইজ দিন (মিমি / mm):</span>
+                <div class="flex gap-2 items-center">
+                    <div class="flex-1">
+                        <label class="text-[10px] text-slate-400">চওড়া (Width)</label>
+                        <input type="number" id="customWidth" value="35" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-center text-cyan-400 font-bold">
+                    </div>
+                    <span class="text-slate-500 mt-4">✕</span>
+                    <div class="flex-1">
+                        <label class="text-[10px] text-slate-400">লম্বা (Height)</label>
+                        <input type="number" id="customHeight" value="45" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-center text-cyan-400 font-bold">
+                    </div>
+                    <button onclick="applyCustomSize()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded font-bold text-white">রিসাইজ</button>
+                </div>
+            </div>
+
+            <!-- Brightness & Contrast Sliders -->
+            <div class="w-full grid grid-cols-2 gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs">
+                <div>
+                    <div class="flex justify-between text-slate-400 mb-1">
+                        <span>☀️ উজ্জ্বলতা</span>
+                        <span id="brightVal">100%</span>
+                    </div>
+                    <input type="range" id="brightness" min="70" max="150" value="100" oninput="applyFilters()" class="w-full accent-cyan-500">
+                </div>
+                <div>
+                    <div class="flex justify-between text-slate-400 mb-1">
+                        <span>🌗 কন্ট্রাস্ট</span>
+                        <span id="contrastVal">100%</span>
+                    </div>
+                    <input type="range" id="contrast" min="70" max="150" value="100" oninput="applyFilters()" class="w-full accent-cyan-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Auto Background Remover & Color Change -->
+        <div id="bgControlArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col gap-3">
+            <h2 class="text-sm font-bold text-cyan-400">৩. অটো ব্যাকগ্রাউন্ড রিমুভ ও কালার চেঞ্জ</h2>
+            
+            <button id="removeBgBtn" onclick="removeBackground()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs tracking-wide transition shadow-lg">
+                ✨ ১-ক্লিকে অটো ব্যাকগ্রাউন্ড রিমুভ করুন
+            </button>
+            <p id="loadingText" class="text-xs text-center text-amber-400 hidden animate-pulse">এআই ব্যাকগ্রাউন্ড পরিষ্কার করছে, দয়া করে ১০-১৫ সেকেন্ড অপেক্ষা করুন...</p>
+
+            <!-- Background Color Palette -->
+            <div class="grid grid-cols-4 gap-2 pt-1">
+                <button onclick="changeBgColor('#ffffff')" class="bg-white text-slate-900 py-2 rounded-lg text-xs font-extrabold border border-slate-400 shadow">সাদা BG</button>
+                <button onclick="changeBgColor('#009933')" class="bg-green-600 text-white py-2 rounded-lg text-xs font-extrabold shadow">সবুজ BG</button>
+                <button onclick="changeBgColor('#0066cc')" class="bg-blue-600 text-white py-2 rounded-lg text-xs font-extrabold shadow">নীল BG</button>
+                <button onclick="changeBgColor('#e0f2fe')" class="bg-sky-200 text-slate-900 py-2 rounded-lg text-xs font-extrabold shadow">স্কাই BG</button>
+            </div>
+        </div>
+
+        <!-- Step 4: Multi-Copy Print Counters & Direct Print -->
+        <div id="printConfigArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col gap-3">
+            <h2 class="text-sm font-bold text-cyan-400">৪. কয় পিস প্রিন্ট করবেন সিলেক্ট করুন</h2>
+            
+            <div class="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <div>
+                    <span class="text-sm font-bold text-slate-200">কপি সংখ্যা</span>
+                    <p id="printDimensionLabel" class="text-[11px] text-cyan-400">সাইজ: 35mm x 45mm</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="updateCount(-1)" class="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg font-bold text-lg text-rose-400">-</button>
+                    <span id="photoCount" class="font-extrabold text-cyan-400 text-lg w-6 text-center">4</span>
+                    <button onclick="updateCount(1)" class="w-8 h-8 bg-slate-800 hover:bg-slate-700 rounded-lg font-bold text-lg text-emerald-400">+</button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-1 gap-2 mt-2">
+                <button onclick="triggerPrint()" class="w-full bg-emerald-600 hover:bg-emerald-700 py-3.5 rounded-xl font-extrabold text-sm tracking-wide shadow-lg transition">
+                    🖨️ ডাইরেক্ট প্রিন্ট শিট তৈরি ও প্রিন্ট করুন
+                </button>
+                <button onclick="downloadSinglePhoto()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 py-2.5 rounded-xl font-bold text-xs text-cyan-400 transition">
+                    ⬇️ সিঙ্গেল রিসাইজ ছবি সেভ করুন (JPG)
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Hidden Print Layout Sheet -->
+    <div id="print-section" class="hidden">
+        <div id="gridContainer" class="flex flex-wrap gap-1.5 justify-start items-start"></div>
+    </div>
+
+    <script>
+        // Initialize Telegram WebApp
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            window.Telegram.WebApp.setHeaderColor('#0f172a');
+        }
+
+        let originalImageFile = null;
+        let baseImageObj = null;
+        let coloredImageObj = null;
+        let finalDataUrl = null;
+        let currentRatio = 35 / 45;
+        let printWidthMm = 35;
+        let printHeightMm = 45;
+        let photoCount = 4;
+
+        const imageInput = document.getElementById('imageInput');
+        const sourceCanvas = document.getElementById('sourceCanvas');
+        const ctx = sourceCanvas.getContext('2d');
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            originalImageFile = file;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                let img = new Image();
+                img.onload = function() {
+                    baseImageObj = img;
+                    coloredImageObj = img;
+                    document.getElementById('editorArea').classList.remove('hidden');
+                    document.getElementById('bgControlArea').classList.remove('hidden');
+                    document.getElementById('printConfigArea').classList.remove('hidden');
+                    renderCanvas();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 1. AI Background Removal
+        async function removeBackground() {
+            if (!originalImageFile) return;
+            const btn = document.getElementById('removeBgBtn');
+            const loadingText = document.getElementById('loadingText');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            loadingText.classList.remove('hidden');
+
+            try {
+                const blob = await imglyRemoveBackground(originalImageFile);
+                const url = URL.createObjectURL(blob);
+                let transparentImg = new Image();
+                transparentImg.onload = function() {
+                    baseImageObj = transparentImg;
+                    changeBgColor('#ffffff');
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50');
+                    loadingText.classList.add('hidden');
+                };
+                transparentImg.src = url;
+            } catch (err) {
+                alert('ব্যাকগ্রাউন্ড রিমুভ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                loadingText.classList.add('hidden');
+            }
+        }
+
+        function changeBgColor(hexColor) {
+            if (!baseImageObj) return;
+            let tempCanvas = document.createElement('canvas');
+            tempCanvas.width = baseImageObj.width;
+            tempCanvas.height = baseImageObj.height;
+            let tCtx = tempCanvas.getContext('2d');
+
+            tCtx.fillStyle = hexColor;
+            tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            tCtx.drawImage(baseImageObj, 0, 0);
+
+            let newImg = new Image();
+            newImg.onload = function() {
+                coloredImageObj = newImg;
+                renderCanvas();
+            };
+            newImg.src = tempCanvas.toDataURL('image/png');
+        }
+
+        // 2. Preset Ratio Switcher
+        function setCropRatio(type, w, h) {
+            currentRatio = w / h;
+            printWidthMm = w;
+            printHeightMm = h;
+            document.getElementById('customWidth').value = w;
+            document.getElementById('customHeight').value = h;
+            document.getElementById('cropLabel').innerText = type.toUpperCase() + ` (${w}x${h}mm)`;
+            document.getElementById('printDimensionLabel').innerText = `সাইজ: ${w}mm x ${h}mm`;
+            renderCanvas();
+        }
+
+        // 3. Custom Size Handler
+        function applyCustomSize() {
+            const w = parseFloat(document.getElementById('customWidth').value);
+            const h = parseFloat(document.getElementById('customHeight').value);
+            if (!w || !h || w <= 0 || h <= 0) {
+                return alert('সঠিক চওড়া ও লম্বা দিন!');
+            }
+            currentRatio = w / h;
+            printWidthMm = w;
+            printHeightMm = h;
+            document.getElementById('cropLabel').innerText = `Custom (${w}x${h}mm)`;
+            document.getElementById('printDimensionLabel').innerText = `সাইজ: ${w}mm x ${h}mm`;
+            renderCanvas();
+            alert('কাস্টম সাইজ সফলভাবে সেট হয়েছে!');
+        }
+
+        function applyFilters() {
+            document.getElementById('brightVal').innerText = document.getElementById('brightness').value + '%';
+            document.getElementById('contrastVal').innerText = document.getElementById('contrast').value + '%';
+            renderCanvas();
+        }
+
+        function renderCanvas() {
+            if (!coloredImageObj) return;
+
+            let imgW = coloredImageObj.width;
+            let imgH = coloredImageObj.height;
+            let cropW, cropH, startX, startY;
+
+            if (imgW / imgH > currentRatio) {
+                cropH = imgH;
+                cropW = imgH * currentRatio;
+                startX = (imgW - cropW) / 2;
+                startY = 0;
+            } else {
+                cropW = imgW;
+                cropH = imgW / currentRatio;
+                startX = 0;
+                startY = (imgH - cropH) / 3.5;
+            }
+
+            sourceCanvas.width = 420;
+            sourceCanvas.height = Math.round(420 / currentRatio);
+
+            const bright = document.getElementById('brightness').value;
+            const contrast = document.getElementById('contrast').value;
+
+            ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+            ctx.filter = `brightness(${bright}%) contrast(${contrast}%)`;
+            ctx.drawImage(coloredImageObj, startX, startY, cropW, cropH, 0, 0, sourceCanvas.width, sourceCanvas.height);
+            ctx.filter = 'none';
+
+            finalDataUrl = sourceCanvas.toDataURL('image/jpeg', 0.96);
+        }
+
+        function updateCount(delta) {
+            photoCount = Math.max(1, photoCount + delta);
+            document.getElementById('photoCount').innerText = photoCount;
+        }
+
+        function triggerPrint() {
+            if (!finalDataUrl) return alert('প্রথমে ছবি আপলোড করুন!');
+            const gridContainer = document.getElementById('gridContainer');
+            gridContainer.innerHTML = '';
+
+            for (let i = 0; i < photoCount; i++) {
+                let img = document.createElement('img');
+                img.src = finalDataUrl;
+                img.style.width = printWidthMm + 'mm';
+                img.style.height = printHeightMm + 'mm';
+                img.className = 'cut-border object-cover';
+                gridContainer.appendChild(img);
+            }
+
+            document.getElementById('print-section').classList.remove('hidden');
+            window.print();
+            document.getElementById('print-section').classList.add('hidden');
+        }
+
+        function downloadSinglePhoto() {
+            if (!finalDataUrl) return;
+            const link = document.createElement('a');
+            link.download = `StudioX_${printWidthMm}x${printHeightMm}_${Date.now()}.jpg`;
+            link.href = finalDataUrl;
+            link.click();
+        }
+
+        function resetAll() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>

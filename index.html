@@ -132,6 +132,7 @@ async function removeBackgroundLocal() {
   try {
     const formData = new FormData();
     formData.append("image", originalImageFile);
+    // Server ei AI cholbe, phone e download hobe na
     const res = await fetch("/remove-bg", { method: "POST", body: formData });
     if (!res.ok) throw new Error("Server error");
     const blob = await res.blob();
@@ -147,7 +148,7 @@ async function removeBackgroundLocal() {
     transparentImg.src = url;
   } catch (err) {
     console.error(err);
-    alert('Server e problem, Render er Logs dekho.');
+    alert('Server e problem. Render Logs dekho.');
     btn.disabled = false;
     loadingText.classList.add('hidden');
   }
@@ -216,4 +217,4 @@ function downloadSinglePhoto(){
 function resetAll(){ location.reload(); }
 </script>
 </body>
-</html>
+  </html>

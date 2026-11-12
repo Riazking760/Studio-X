@@ -8,8 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Telegram Mini App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Free Browser AI Background Removal Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/bundle.js"></script>
     <style>
         @media print {
             body * { visibility: hidden; }
@@ -106,14 +104,14 @@
             </div>
         </div>
 
-        <!-- Step 3: Auto Background Remover & Color Change -->
+        <!-- Step 3: Hugging Face AI Background Remover & Color Change -->
         <div id="bgControlArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col gap-3">
-            <h2 class="text-sm font-bold text-cyan-400">৩. অটো ব্যাকগ্রাউন্ড রিমুভ ও কালার চেঞ্জ</h2>
+            <h2 class="text-sm font-bold text-cyan-400">৩. Hugging Face AI ব্যাকগ্রাউন্ড রিমুভ ও কালার</h2>
             
-            <button id="removeBgBtn" onclick="removeBackground()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs tracking-wide transition shadow-lg">
-                ✨ ১-ক্লিকে অটো ব্যাকগ্রাউন্ড রিমুভ করুন
+            <button id="removeBgBtn" onclick="removeBackgroundHuggingFace()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs tracking-wide transition shadow-lg">
+                ✨ Hugging Face AI দিয়ে ব্যাকগ্রাউন্ড রিমুভ করুন
             </button>
-            <p id="loadingText" class="text-xs text-center text-amber-400 hidden animate-pulse">এআই ব্যাকগ্রাউন্ড পরিষ্কার করছে, দয়া করে ১০-১৫ সেকেন্ড অপেক্ষা করুন...</p>
+            <p id="loadingText" class="text-xs text-center text-amber-400 hidden animate-pulse">Hugging Face এআই ব্যাকগ্রাউন্ড পরিষ্কার করছে, দয়া করে কয়েক সেকেন্ড অপেক্ষা করুন...</p>
 
             <!-- Background Color Palette -->
             <div class="grid grid-cols-4 gap-2 pt-1">
@@ -200,8 +198,8 @@
             reader.readAsDataURL(file);
         });
 
-        // 1. AI Background Removal
-        async function removeBackground() {
+        // Hugging Face AI Background Removal Integration
+        async function removeBackgroundHuggingFace() {
             if (!originalImageFile) return;
             const btn = document.getElementById('removeBgBtn');
             const loadingText = document.getElementById('loadingText');
@@ -210,20 +208,39 @@
             btn.classList.add('opacity-50');
             loadingText.classList.remove('hidden');
 
+            const HUGGING_FACE_API_KEY = "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";
+            const modelURL = "https://api-inference.huggingface.co/models/briaai/RMBG-1.4";
+
             try {
-                const blob = await imglyRemoveBackground(originalImageFile);
+                const response = await fetch(modelURL, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${HUGGING_FACE_API_KEY}`,
+                        "Content-Type": originalImageFile.type
+                    },
+                    body: originalImageFile
+                });
+
+                if (!response.ok) {
+                    throw new Error("Hugging Face API error: " + response.statusText);
+                }
+
+                const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
                 let transparentImg = new Image();
+                
                 transparentImg.onload = function() {
                     baseImageObj = transparentImg;
-                    changeBgColor('#ffffff');
+                    changeBgColor('#ffffff'); // Default background white
                     btn.disabled = false;
                     btn.classList.remove('opacity-50');
                     loadingText.classList.add('hidden');
                 };
                 transparentImg.src = url;
+
             } catch (err) {
-                alert('ব্যাকগ্রাউন্ড রিমুভ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                console.error(err);
+                alert('Hugging Face এআই দিয়ে ব্যাকগ্রাউন্ড রিমুভ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
                 btn.disabled = false;
                 btn.classList.remove('opacity-50');
                 loadingText.classList.add('hidden');
@@ -249,7 +266,7 @@
             newImg.src = tempCanvas.toDataURL('image/png');
         }
 
-        // 2. Preset Ratio Switcher
+        // Preset Ratio Switcher
         function setCropRatio(type, w, h) {
             currentRatio = w / h;
             printWidthMm = w;
@@ -261,7 +278,7 @@
             renderCanvas();
         }
 
-        // 3. Custom Size Handler
+        // Custom Size Handler
         function applyCustomSize() {
             const w = parseFloat(document.getElementById('customWidth').value);
             const h = parseFloat(document.getElementById('customHeight').value);

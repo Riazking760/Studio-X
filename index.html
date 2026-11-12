@@ -17,21 +17,18 @@
 </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans pb-10">
-
 <header class="bg-slate-900 border-b border-slate-800 py-3 px-4 flex justify-between items-center no-print shadow-md sticky top-0 z-30">
   <div class="flex items-center gap-2">
     <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-extrabold text-white text-sm shadow">X</div>
-    <div><h1 class="text-base font-extrabold text-cyan-400 tracking-wide">Studio X</h1><p class="text-[10px] text-slate-400">Telegram Mini Studio</p></div>
+    <div><h1 class="text-base font-extrabold text-cyan-400 tracking-wide">Studio X</h1><p class="text-[10px] text-slate-400">Telegram Mini Studio - Free</p></div>
   </div>
   <button onclick="resetAll()" class="text-xs bg-slate-800 border border-slate-700 text-rose-400 px-3 py-1.5 rounded-lg font-semibold">🔄 রিসেট</button>
 </header>
-
 <main class="flex-1 max-w-lg w-full mx-auto p-4 flex flex-col gap-4 no-print">
   <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow">
     <label class="block text-sm font-bold mb-2 text-cyan-400">১. কাস্টমারের ছবি আপলোড করুন</label>
     <input type="file" id="imageInput" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-cyan-600 file:text-white cursor-pointer">
   </div>
-
   <div id="editorArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col items-center gap-3">
     <div class="w-full flex justify-between items-center">
       <h2 class="text-sm font-bold text-cyan-400">২. সাইজ ও প্রিভিউ</h2>
@@ -59,11 +56,10 @@
       <div><div class="flex justify-between text-slate-400 mb-1"><span>🌗 কন্ট্রাস্ট</span><span id="contrastVal">100%</span></div><input type="range" id="contrast" min="70" max="150" value="100" oninput="applyFilters()" class="w-full accent-cyan-500"></div>
     </div>
   </div>
-
   <div id="bgControlArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col gap-3">
     <h2 class="text-sm font-bold text-cyan-400">৩. AI ব্যাকগ্রাউন্ড রিমুভ ও কালার</h2>
     <button id="removeBgBtn" onclick="removeBackgroundLocal()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs shadow-lg">✨ AI দিয়ে ব্যাকগ্রাউন্ড রিমুভ করুন</button>
-    <p id="loadingText" class="text-xs text-center text-amber-400 hidden animate-pulse">Server e AI kaj kortese... 3-5 sec wait koro...</p>
+    <p id="loadingText" class="text-xs text-center text-amber-400 hidden animate-pulse">AI kaj kortese... Prothombar 10 sec lagbe, porer bar 3 sec...</p>
     <div class="grid grid-cols-4 gap-2 pt-1">
       <button onclick="changeBgColor('#ffffff')" class="bg-white text-slate-900 py-2 rounded-lg text-xs font-extrabold border border-slate-400">সাদা BG</button>
       <button onclick="changeBgColor('#009933')" class="bg-green-600 text-white py-2 rounded-lg text-xs font-extrabold">সবুজ BG</button>
@@ -71,7 +67,6 @@
       <button onclick="changeBgColor('#e0f2fe')" class="bg-sky-200 text-slate-900 py-2 rounded-lg text-xs font-extrabold">স্কাই BG</button>
     </div>
   </div>
-
   <div id="printConfigArea" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 shadow flex flex-col gap-3">
     <h2 class="text-sm font-bold text-cyan-400">৪. কয় পিস প্রিন্ট করবেন</h2>
     <div class="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
@@ -88,23 +83,19 @@
     </div>
   </div>
 </main>
-
 <div id="print-section" class="hidden"><div id="gridContainer" class="flex flex-wrap gap-1.5 justify-start items-start"></div></div>
-
-<script>
+<script type="module">
+import { removeBackground } from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm';
 if (window.Telegram && window.Telegram.WebApp) { window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); }
-
 let originalImageFile = null;
 let baseImageObj = null;
 let coloredImageObj = null;
 let finalDataUrl = null;
 let currentRatio = 35/45;
 let printWidthMm = 35, printHeightMm = 45, photoCount = 4;
-
 const imageInput = document.getElementById('imageInput');
 const sourceCanvas = document.getElementById('sourceCanvas');
 const ctx = sourceCanvas.getContext('2d');
-
 imageInput.addEventListener('change', function(e){
   const file = e.target.files[0]; if(!file) return;
   originalImageFile = file;
@@ -122,20 +113,18 @@ imageInput.addEventListener('change', function(e){
   };
   reader.readAsDataURL(file);
 });
-
-async function removeBackgroundLocal() {
+window.removeBackgroundLocal = async function() {
   if (!originalImageFile) return alert('Age chobi upload koro!');
   const btn = document.getElementById('removeBgBtn');
   const loadingText = document.getElementById('loadingText');
   btn.disabled = true;
   loadingText.classList.remove('hidden');
   try {
-    const formData = new FormData();
-    formData.append("image", originalImageFile);
-    // Server ei AI cholbe, phone e download hobe na
-    const res = await fetch("/remove-bg", { method: "POST", body: formData });
-    if (!res.ok) throw new Error("Server error");
-    const blob = await res.blob();
+    // CHOTO MODEL - ager ta 170MB, eita 40MB, Free te cholbe
+    const blob = await removeBackground(originalImageFile, {
+      publicPath: 'https://staticimgly.com/@imgly/background-removal-data/',
+      model: 'isnet_quint8'
+    });
     const url = URL.createObjectURL(blob);
     let transparentImg = new Image();
     transparentImg.onload = function() {
@@ -148,13 +137,12 @@ async function removeBackgroundLocal() {
     transparentImg.src = url;
   } catch (err) {
     console.error(err);
-    alert('Server e problem. Render Logs dekho.');
+    alert('Net slow tai hoy nai. WiFi diye abar try koro.');
     btn.disabled = false;
     loadingText.classList.add('hidden');
   }
-}
-
-function changeBgColor(hexColor){
+};
+window.changeBgColor = function(hexColor){
   if(!baseImageObj) return;
   let tempCanvas = document.createElement('canvas');
   tempCanvas.width = baseImageObj.width; tempCanvas.height = baseImageObj.height;
@@ -164,17 +152,16 @@ function changeBgColor(hexColor){
   let newImg = new Image();
   newImg.onload = function(){ coloredImageObj = newImg; renderCanvas(); };
   newImg.src = tempCanvas.toDataURL('image/png');
-}
-
-function setCropRatio(type,w,h){
+};
+window.setCropRatio = function(type,w,h){
   currentRatio = w/h; printWidthMm=w; printHeightMm=h;
   document.getElementById('customWidth').value=w;
   document.getElementById('customHeight').value=h;
   document.getElementById('cropLabel').innerText = type.toUpperCase()+` (${w}x${h}mm)`;
   document.getElementById('printDimensionLabel').innerText = `সাইজ: ${w}mm x ${h}mm`;
   renderCanvas();
-}
-function applyCustomSize(){
+};
+window.applyCustomSize = function(){
   const w = parseFloat(document.getElementById('customWidth').value);
   const h = parseFloat(document.getElementById('customHeight').value);
   if(!w||!h) return alert('Sothik size dao!');
@@ -182,12 +169,12 @@ function applyCustomSize(){
   document.getElementById('cropLabel').innerText = `Custom (${w}x${h}mm)`;
   document.getElementById('printDimensionLabel').innerText = `সাইজ: ${w}mm x ${h}mm`;
   renderCanvas();
-}
-function applyFilters(){
+};
+window.applyFilters = function(){
   document.getElementById('brightVal').innerText = document.getElementById('brightness').value+'%';
   document.getElementById('contrastVal').innerText = document.getElementById('contrast').value+'%';
   renderCanvas();
-}
+};
 function renderCanvas(){
   if(!coloredImageObj) return;
   let imgW=coloredImageObj.width, imgH=coloredImageObj.height;
@@ -203,18 +190,18 @@ function renderCanvas(){
   ctx.filter='none';
   finalDataUrl=sourceCanvas.toDataURL('image/jpeg',0.96);
 }
-function updateCount(d){ photoCount=Math.max(1,photoCount+d); document.getElementById('photoCount').innerText=photoCount; }
-function triggerPrint(){
+window.updateCount = function(d){ photoCount=Math.max(1,photoCount+d); document.getElementById('photoCount').innerText=photoCount; };
+window.triggerPrint = function(){
   if(!finalDataUrl) return alert('Age chobi upload koro!');
   const g=document.getElementById('gridContainer'); g.innerHTML='';
   for(let i=0;i<photoCount;i++){ let img=document.createElement('img'); img.src=finalDataUrl; img.style.width=printWidthMm+'mm'; img.style.height=printHeightMm+'mm'; img.className='cut-border object-cover'; g.appendChild(img); }
   document.getElementById('print-section').classList.remove('hidden'); window.print(); document.getElementById('print-section').classList.add('hidden');
-}
-function downloadSinglePhoto(){
+};
+window.downloadSinglePhoto = function(){
   if(!finalDataUrl) return;
   const link=document.createElement('a'); link.download=`StudioX_${printWidthMm}x${printHeightMm}_${Date.now()}.jpg`; link.href=finalDataUrl; link.click();
-}
-function resetAll(){ location.reload(); }
+};
+window.resetAll = function(){ location.reload(); };
 </script>
 </body>
-  </html>
+</html>
